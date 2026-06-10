@@ -17,6 +17,6 @@ services:
     container_name: rest-service
     ports:
       - "8080:8080"
-    depends_on:
-      - grpc-service
-    restart: unless-stoppeds
+    # depends_on:
+    #   - grpc-service
+    restart: unless-stopped
