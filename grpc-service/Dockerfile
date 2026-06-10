@@ -1,43 +1,45 @@
-# --- Estágio 1: Compilação (Build) ---
-FROM golang:1.26.4-alpine AS builder
+# ==========================================
+# Estágio 1: Build (Compilação)
+# ==========================================
+# CORREÇÃO: "golang:alpine" é a tag oficial para a versão mais recente com Alpine
+FROM golang:alpine AS builder
 
-# Instala ferramentas essenciais de compilação C
-RUN apk add --no-cache gcc musl-dev
+# Instala ferramentas essenciais para download de dependências
+RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
-# Copia as definições de módulos e baixa as dependências
-COPY go.mod ./
-# Se houver o arquivo go.sum na pasta do grpc-service, descomente a linha abaixo:
-# COPY go.sum ./
+# Copia os arquivos de definição de dependências primeiro (otimiza o cache do Docker)
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copia todo o código-fonte do serviço gRPC
+# Copia todo o restante do código-fonte do gRPC (incluindo main.go e repository.go)
 COPY . .
 
-# DETERMINA O CAMINHO DO MAIN E COMPILA ESTATICAMENTE:
-# Verifica se o main.go está na raiz do serviço ou dentro de cmd/grpc-service
-RUN MAIN_PATH=$(if [ -f "./main.go" ]; then echo "./main.go"; else echo "./cmd/grpc-service/main.go"; fi) && \
-    CGO_ENABLED=1 GOOS=linux go build \
-    -ldflags "-extldflags '-static'" \
-    -o grpc-service ${MAIN_PATH}
+# Compila o DIRETÓRIO inteiro com CGO desativado
+RUN if [ -f "./main.go" ]; then \
+        CGO_ENABLED=0 GOOS=linux go build -o grpc-service .; \
+    else \
+        CGO_ENABLED=0 GOOS=linux go build -o grpc-service ./cmd/grpc-service; \
+    fi
 
-# Garante explicitamente a permissão de execução no binário gerado
-RUN chmod +x grpc-service
-
-# --- Estágio 2: Execução ---
+# ==========================================
+# Estágio 2: Execução (Imagem Final Leve)
+# ==========================================
 FROM alpine:latest
 
-# Instala certificados e pacotes de compatibilidade essenciais para runtime
-RUN apk add --no-cache ca-certificates libc6-compat gcompat
+RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-# Copia o binário final e limpo do estágio de build
+# Cria a pasta onde o SQLite guardará os dados persistidos
+RUN mkdir -p /app/data
+
+# Copia o binário compilado no Estágio 1 para esta imagem limpa
 COPY --from=builder /app/grpc-service .
 
-# Expõe a porta padrão do gRPC configurada no projeto
+# Expõe a porta padrão do gRPC
 EXPOSE 50051
 
-# Comando para rodar o serviço gRPC
+# Comando para rodar a aplicação
 CMD ["./grpc-service"]

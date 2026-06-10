@@ -45,6 +45,7 @@ func (c *TodoController) CreateTodoHandler(w http.ResponseWriter, r *http.Reques
 }
 
 // GET /api/v1/todos
+// GET /api/v1/todos
 func (c *TodoController) ListTodosHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
@@ -60,7 +61,14 @@ func (c *TodoController) ListTodosHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if todos == nil {
-		todos = make([]*Todo, 0) // Evita retornar 'null' no JSON do front-end
+		todos = make([]*Todo, 0)
 	}
-	json.NewEncoder(w).Encode(todos)
+
+	// Estrutura customizada contendo o aviso de origem dos dados
+	response := map[string]interface{}{
+		"origem": "grpc-service",
+		"dados":  todos,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }

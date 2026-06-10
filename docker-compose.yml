@@ -1,12 +1,14 @@
 services:
-  # grpc-service:
-  #   build:
-  #     context: ./grpc-service
-  #     dockerfile: Dockerfile
-  #   container_name: grpc-service
-  #   ports:
-  #     - "50051:50051"
-  #   restart: unless-stopped
+  grpc-service:
+    build:
+      context: ./grpc-service
+      dockerfile: Dockerfile
+    container_name: grpc-service
+    ports:
+      - "50051:50051"
+    volumes:
+      - grpc-data:/app/data  # Monta o volume dentro da pasta /app/data do container
+    restart: unless-stopped
 
   rest-service:
     platform: linux/amd64  # Garante compatibilidade de emulação de arquitetura no seu Mac Air
@@ -17,3 +19,7 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+
+# CORREÇÃO AQUI: Declaração global correta do volume nomeado
+volumes:
+  grpc-data:
