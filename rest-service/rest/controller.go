@@ -5,6 +5,12 @@ import (
 	"net/http"
 )
 
+// Input DTO para criar Todo
+type CreateTodoInput struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 // HTTP Controller (Interface Adapter)
 type TodoController struct {
 	appService *TodoApplicationService
@@ -27,7 +33,7 @@ func (c *TodoController) CreateTodoHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	todo, err := c.appService.CreateTodo(r.Context(), input)
+	todo, err := c.appService.CreateTodo(r.Context(), input.Title, input.Description)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
@@ -54,7 +60,7 @@ func (c *TodoController) ListTodosHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if todos == nil {
-		todos = []*Todo{} // Evita retornar 'null' no JSON do front-end
+		todos = make([]*Todo, 0) // Evita retornar 'null' no JSON do front-end
 	}
 	json.NewEncoder(w).Encode(todos)
 }

@@ -2,63 +2,57 @@ package rest
 
 import (
 	"context"
-	"errors"
-
-	"github.com/google/uuid"
+	"rest-service/pb" // Pasta onde ficarão os arquivos gerados do proto
+	"time"
 )
 
-// Entidade de Domínio
-type Todo struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Completed   bool   `json:"completed"`
-}
-
-// Regra de validação de domínio simples
-func (t *Todo) Validate() error {
-	if t.Title == "" {
-		return errors.New("o título do todo list não pode ser vazio")
-	}
-	return nil
-}
-
-// Estruturas de Dados de Entrada (DTOs) da Aplicação
-type CreateTodoInput struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-}
-
-// Serviço de Aplicação (Application Service)
 type TodoApplicationService struct {
-	repo TodoRepository
+	grpcClient pb.TodoServiceClient // Substitui o TodoRepository
 }
 
-func NewTodoApplicationService(repo TodoRepository) *TodoApplicationService {
-	return &TodoApplicationService{repo: repo}
+func NewTodoApplicationService(client pb.TodoServiceClient) *TodoApplicationService {
+	return &TodoApplicationService{grpcClient: client}
 }
 
-// Regra de Negócio: Criar uma nova lista/item ToDo
-func (s *TodoApplicationService) CreateTodo(ctx context.Context, input CreateTodoInput) (*Todo, error) {
-	todo := &Todo{
-		ID:          uuid.New().String(),
-		Title:       input.Title,
-		Description: input.Description,
-		Completed:   false,
-	}
+func (s *TodoApplicationService) CreateTodo(ctx context.Context, title, description string) (*Todo, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
 
-	if err := todo.Validate(); err != nil {
+	// Transforma a chamada local em uma chamada de rede gRPC para o outro microsserviço
+	resp, err := s.grpcClient.CreateTodo(ctx, &pb.CreateTodoRequest{
+		Title:       title,
+		Description: description,
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	if err := s.repo.Save(ctx, todo); err != nil {
-		return nil, err
-	}
-
-	return todo, nil
+	// Mapeia a resposta do gRPC de volta para a struct do domínio do REST
+	return &Todo{
+		ID:          resp.Id,
+		Title:       resp.Title,
+		Description: resp.Description,
+		Completed:   resp.Completed,
+	}, nil
 }
 
-// Regra de Negócio: Listar todos os ToDos
 func (s *TodoApplicationService) ListTodos(ctx context.Context) ([]*Todo, error) {
-	return s.repo.FindAll(ctx)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	resp, err := s.grpcClient.ListTodos(ctx, &pb.ListTodosRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	var todos []*Todo
+	for _, t := range resp.Todos {
+		todos = append(todos, &Todo{
+			ID:          t.Id,
+			Title:       t.Title,
+			Description: t.Description,
+			Completed:   t.Completed,
+		})
+	}
+	return todos, nil
 }

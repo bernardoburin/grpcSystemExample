@@ -1,22 +1,19 @@
-version: '3.9'
-
 services:
-  grpc-service:
-    build:
-      context: ./grpc-service
-      dockerfile: Dockerfile
-    container_name: grpc-service
-    ports:
-      - "50051:50051"
-    restart: unless-stopped
+  # grpc-service:
+  #   build:
+  #     context: ./grpc-service
+  #     dockerfile: Dockerfile
+  #   container_name: grpc-service
+  #   ports:
+  #     - "50051:50051"
+  #   restart: unless-stopped
 
   rest-service:
+    platform: linux/amd64  # Garante compatibilidade de emulação de arquitetura no seu Mac Air
     build:
       context: ./rest-service
       dockerfile: Dockerfile
     container_name: rest-service
     ports:
       - "8080:8080"
-    # depends_on:
-    #   - grpc-service
     restart: unless-stopped

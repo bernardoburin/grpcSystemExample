@@ -4,8 +4,17 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// Entidade de domínio Todo
+type Todo struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Completed   bool   `json:"completed"`
+}
 
 // Factory de conexão com o banco de dados SQLite
 func NewSQLiteFactory() (*sql.DB, error) {
@@ -46,6 +55,10 @@ func NewSQLiteTodoRepository(db *sql.DB) *SQLiteTodoRepository {
 }
 
 func (r *SQLiteTodoRepository) Save(ctx context.Context, todo *Todo) error {
+	// Gera ID se não existir
+	if todo.ID == "" {
+		todo.ID = uuid.New().String()
+	}
 	query := `INSERT INTO todos (id, title, description, completed) VALUES (?, ?, ?, ?)`
 	_, err := r.db.ExecContext(ctx, query, todo.ID, todo.Title, todo.Description, todo.Completed)
 	return err

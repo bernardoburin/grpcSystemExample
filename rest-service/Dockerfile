@@ -14,12 +14,11 @@ RUN go mod download
 COPY . .
 
 # COMPILAÇÃO:
-# Compila estaticamente as partes possíveis e garante o build do arquivo correto
-RUN CGO_ENABLED=1 GOOS=linux go build -o rest-service \
-    $(if [ -f "./main.go" ]; then echo "./main.go"; else echo "./cmd/rest-service/main.go"; fi)
-
-# Força a permissão de execução no binário gerado
-RUN chmod +x rest-service
+# Forçamos o CGO e adicionamos flags para garantir um binário estático compatível com o Alpine.
+# O uso de './...' compila o pacote atual (onde está o main.go) de forma limpa.
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags "-extldflags '-static'" \
+    -o rest-service .
 
 # --- Estágio 2: Execução ---
 FROM alpine:latest
@@ -29,8 +28,11 @@ RUN apk add --no-cache ca-certificates libc6-compat gcompat
 
 WORKDIR /app
 
-# Copia o binário compilado e com permissões do estágio anterior
+# Copia o binário compilado do estágio anterior
 COPY --from=builder /app/rest-service .
+
+# GARANTE A PERMISSÃO: Força o binário a ser executável no estágio final
+RUN chmod +x ./rest-service
 
 EXPOSE 8080
 

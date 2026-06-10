@@ -1,25 +1,30 @@
-package rest
+package main
 
 import (
 	"log"
 	"net/http"
-	"rest-service/rest" // substitua pelo caminho do módulo correto do seu projeto
+	"rest-service/rest"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
-	// 1. Inicializa a infraestrutura de banco de dados (SQLite Factory)
-	db, err := rest.NewSQLiteFactory()
+	// 1. Conecta ao microsserviço gRPC usando o nome do container definido no docker-compose
+	conn, err := grpc.Dial("grpc-service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Falha ao conectar no SQLite: %v", err)
+		log.Fatalf("Não foi possível conectar ao gRPC service: %v", err)
 	}
-	defer db.Close()
+	defer conn.Close()
 
-	// 2. Injeta as dependências seguindo o fluxo DDD (Infra -> App -> Controller)
-	todoRepo := rest.NewSQLiteTodoRepository(db)
-	appService := rest.NewTodoApplicationService(todoRepo)
+	// 2. Cria o cliente gRPC baseado no contrato proto
+	grpcClient := pb.NewTodoServiceClient(conn)
+
+	// 3. Injeta o cliente gRPC no Application Service (DDD)
+	appService := rest.NewTodoApplicationService(grpcClient)
 	todoController := rest.NewTodoController(appService)
 
-	// 3. Define as Rotas/Endpoints para o Front-end
+	// 4. Mantém as rotas HTTP originais intactas para o Frontend
 	http.HandleFunc("/api/v1/todos", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -31,9 +36,8 @@ func main() {
 		}
 	})
 
-	// 4. Inicia o servidor HTTP na porta 8080 configurada no projeto
-	log.Println("REST API Server rodando com sucesso na porta :8080...")
+	log.Println("REST API Gateway rodando com sucesso na porta :8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Erro ao iniciar o servidor: %v", err)
+		log.Fatalf("Erro ao iniciar o servidor HTTP: %v", err)
 	}
 }
